@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="Quantum Reporter Chat", 
     page_icon="🕵️‍♂️", 
     layout="wide",
-    initial_sidebar_state="expanded" # Barra lateral siempre abierta para ver evidencias
+    initial_sidebar_state="expanded" 
 )
 
 # Configurar API
@@ -23,14 +23,48 @@ except:
     st.stop()
 
 # ==========================================
-# 2. ESTILOS Y PDF (CORREGIDO)
+# 2. ESTILOS Y PDF (ESTÉTICA MEJORADA)
 # ==========================================
 def inyectar_estilo_quantum():
     st.markdown("""
         <style>
+        /* Fondo General */
         .stApp { background-color: #0E1117; color: #FAFAFA; }
-        .stChatMessage { border: 1px solid #30363d; border-radius: 10px; padding: 10px; background-color: #161b22; }
-        section[data-testid="stSidebar"] { background-color: #0E1117; border-right: 1px solid #30363d; }
+        
+        /* Globos de Chat */
+        .stChatMessage { 
+            border: 1px solid #30363d; 
+            border-radius: 10px; 
+            padding: 10px; 
+            background-color: #161b22; 
+        }
+        
+        /* Barra Lateral */
+        section[data-testid="stSidebar"] { 
+            background-color: #0E1117; 
+            border-right: 1px solid #30363d; 
+        }
+
+        /* --- NUEVO: MARCO PARA LA CAJA DE EVIDENCIAS --- */
+        .stTextArea textarea {
+            background-color: #161b22 !important; /* Fondo un poco más claro que la base */
+            border: 1px solid #484f59 !important; /* Borde gris visible */
+            border-radius: 8px !important;
+            color: #FAFAFA !important;
+        }
+        
+        /* Efecto al hacer clic en la caja (Focus) */
+        .stTextArea textarea:focus {
+            border: 1px solid #00d4ff !important; /* Borde AZUL al escribir */
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+        }
+        
+        /* Títulos de la Sidebar */
+        [data-testid="stSidebar"] h3 {
+            border-bottom: 2px solid #00d4ff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -47,37 +81,32 @@ def crear_pdf_reporte(historial, agente):
     pdf.add_page()
     pdf.set_font("Arial", size=10)
     
-    # Iteramos sobre el historial estandarizado (Lista de Diccionarios)
     for mensaje in historial:
-        role = "REPORTERO" if mensaje["role"] == "model" else "INVESTIGADOR"
-        
-        # Color: Azul para IA, Verde para Usuario
-        pdf.set_font("Arial", "B", 10)
-        if role == "REPORTERO":
-            pdf.set_text_color(0, 0, 128)
-        else:
-            pdf.set_text_color(0, 100, 0)
+        if mensaje["role"] == "user" or mensaje["role"] == "model":
+            role = "REPORTERO" if mensaje["role"] == "model" else "INVESTIGADOR"
             
-        pdf.cell(0, 10, txt=f"[{role}]", ln=True)
-        
-        # Volver a negro para el texto
-        pdf.set_text_color(0, 0, 0)
-        pdf.set_font("Arial", size=10)
-        
-        # Extracción segura del texto
-        texto = mensaje["content"]
-        # Limpieza de caracteres problemáticos para PDF básico
-        texto_seguro = texto.encode('latin-1', 'replace').decode('latin-1')
-        
-        pdf.multi_cell(0, 6, txt=texto_seguro)
-        pdf.ln(3)
+            pdf.set_font("Arial", "B", 10)
+            if role == "REPORTERO":
+                pdf.set_text_color(0, 0, 128)
+            else:
+                pdf.set_text_color(0, 100, 0)
+            
+            pdf.cell(0, 10, txt=f"[{role}]", ln=True)
+            
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", size=10)
+            
+            texto = mensaje["content"]
+            texto_seguro = texto.encode('latin-1', 'replace').decode('latin-1')
+            
+            pdf.multi_cell(0, 6, txt=texto_seguro)
+            pdf.ln(3)
         
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
-# 3. SEGURIDAD VISUAL (Login + Música + Onda)
+# 3. SEGURIDAD VISUAL 
 # ==========================================
-# Al llamar a esto, tu módulo utils_login se encarga de todo lo visual
 usuario = login.validar_acceso()
 
 if not usuario:
@@ -87,12 +116,13 @@ if not usuario:
 # 4. CEREBRO Y EVIDENCIA
 # ==========================================
 
-# A) Barra Lateral (Contexto Permanente)
 with st.sidebar:
     st.markdown("### 🗄️ Sala de Evidencias")
-    st.caption("Los documentos aquí cargados serán la 'Verdad Base' para toda la sesión.")
+    st.caption("Los documentos cargados aquí serán la 'Verdad Base'.")
     
-    evidencia_texto = st.text_area("Pegar Texto Base / Cable:", height=200, placeholder="Pega aquí el reporte, noticia o datos...")
+    # Aquí es donde se aplicará el nuevo estilo del borde
+    evidencia_texto = st.text_area("Pegar Texto Base / Cable:", height=250, placeholder="Pega aquí el reporte, noticia o datos...")
+    
     uploaded_file = st.file_uploader("Subir Imagen Evidencia", type=["jpg", "png", "jpeg"])
     
     imagen_pil = None
@@ -102,7 +132,6 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Botón PDF (Ahora sí funciona)
     if "messages" in st.session_state and len(st.session_state.messages) > 0:
         pdf_bytes = crear_pdf_reporte(st.session_state.messages, usuario)
         st.download_button("📄 Descargar Bitácora PDF", pdf_bytes, "Reporte_Investigacion.pdf", "application/pdf")
@@ -111,7 +140,8 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# B) TU CEREBRO GEM (Prompt Maestro)
+# ---------------------------------------------------------
+# GEM PROMPT (TU CEREBRO)
 # ---------------------------------------------------------
 GEM_PROMPT = """
 Eres Quantum Reporter, un periodista de investigación de élite.
@@ -122,11 +152,9 @@ No inventes información que no esté en la evidencia, pero usa tu contexto hist
 """
 # ---------------------------------------------------------
 
-# C) Inicialización del Chat
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Mostrar mensajes anteriores
 st.title("Quantum Reporter 🕵️‍♂️")
 st.caption(f"Agente Activo: {usuario}")
 
@@ -134,49 +162,37 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# D) Procesamiento del Chat (Lógica V3.0)
 if prompt := st.chat_input("Escribe tu instrucción de investigación..."):
     
-    # 1. Guardar y mostrar mensaje del usuario
-    # Guardamos como diccionario simple {"role": "user", "content": "texto"}
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Generar respuesta
     with st.chat_message("assistant"):
         with st.spinner("Analizando evidencias..."):
             try:
-                # Construimos el Prompt Dinámico:
                 input_parts = []
-                
-                # a) Instrucción del Sistema (Tu GEM)
                 input_parts.append(GEM_PROMPT)
                 
-                # b) Evidencia de la Sidebar (Siempre presente)
                 if evidencia_texto:
                     input_parts.append(f"\n[EVIDENCIA DOCUMENTAL PRINCIPAL]:\n{evidencia_texto}\n")
                 if imagen_pil:
                     input_parts.append(imagen_pil)
                     input_parts.append("\n[NOTA: Analiza la imagen adjunta como parte de la evidencia]\n")
 
-                # c) Contexto de la conversación reciente (Últimos 4 mensajes)
                 history_context = "\n[HISTORIAL DE CHAT RECIENTE]:\n"
                 for msg in st.session_state.messages[-5:]: 
                     history_context += f"{msg['role'].upper()}: {msg['content']}\n"
                 input_parts.append(history_context)
                 
-                # d) La pregunta actual
                 input_parts.append(f"\n[SOLICITUD ACTUAL]: {prompt}")
 
-                # LLAMADA AL MODELO
-                model = genai.GenerativeModel('gemini-2.0-flash')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(input_parts)
                 
                 text_response = response.text
                 st.markdown(text_response)
                 
-                # Guardar respuesta estandarizada
                 st.session_state.messages.append({"role": "model", "content": text_response})
 
             except Exception as e:
