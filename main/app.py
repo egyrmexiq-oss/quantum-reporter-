@@ -118,7 +118,7 @@ if st.button("🔍 Iniciar Investigación Profunda"):
         with st.spinner("🕵️‍♂️ Analizando hechos, verificando fuentes y redactando reporte..."):
             try:
                 # Configuración del Modelo (Usamos Gemini Pro Vision o Texto)
-                model = genai.GenerativeModel('gemini-1.5-flash') # Modelo rápido y potente
+                model = genai.GenerativeModel('gemini-2.0-flash') # Modelo rápido y potente
                 
                 response = None
                 
