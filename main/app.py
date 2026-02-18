@@ -8,7 +8,12 @@ import utils_login as login
 # ==========================================
 # 1. CONFIGURACIÓN E IMPORTACIONES
 # ==========================================
-st.set_page_config(page_title="Quantum Reporter Chat", page_icon="🕵️‍♂️", layout="wide")
+st.set_page_config(
+    page_title="Quantum Reporter Chat", 
+    page_icon="🕵️‍♂️", 
+    layout="wide",
+    initial_sidebar_state="expanded" # Barra lateral siempre abierta para ver evidencias
+)
 
 # Configurar API
 try:
@@ -18,13 +23,14 @@ except:
     st.stop()
 
 # ==========================================
-# 2. ESTILOS Y PDF
+# 2. ESTILOS Y PDF (CORREGIDO)
 # ==========================================
 def inyectar_estilo_quantum():
     st.markdown("""
         <style>
         .stApp { background-color: #0E1117; color: #FAFAFA; }
-        .stChatMessage { border: 1px solid #30363d; border-radius: 10px; padding: 10px; }
+        .stChatMessage { border: 1px solid #30363d; border-radius: 10px; padding: 10px; background-color: #161b22; }
+        section[data-testid="stSidebar"] { background-color: #0E1117; border-right: 1px solid #30363d; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -41,111 +47,138 @@ def crear_pdf_reporte(historial, agente):
     pdf.add_page()
     pdf.set_font("Arial", size=10)
     
-    # Imprimir solo el último análisis o todo el chat
-    # Aquí imprimimos todo el intercambio para tener contexto
+    # Iteramos sobre el historial estandarizado (Lista de Diccionarios)
     for mensaje in historial:
         role = "REPORTERO" if mensaje["role"] == "model" else "INVESTIGADOR"
+        
+        # Color: Azul para IA, Verde para Usuario
         pdf.set_font("Arial", "B", 10)
+        if role == "REPORTERO":
+            pdf.set_text_color(0, 0, 128)
+        else:
+            pdf.set_text_color(0, 100, 0)
+            
         pdf.cell(0, 10, txt=f"[{role}]", ln=True)
+        
+        # Volver a negro para el texto
+        pdf.set_text_color(0, 0, 0)
         pdf.set_font("Arial", size=10)
         
-        texto = mensaje["parts"][0] if isinstance(mensaje["parts"], list) else mensaje["parts"]
+        # Extracción segura del texto
+        texto = mensaje["content"]
+        # Limpieza de caracteres problemáticos para PDF básico
         texto_seguro = texto.encode('latin-1', 'replace').decode('latin-1')
+        
         pdf.multi_cell(0, 6, txt=texto_seguro)
         pdf.ln(3)
         
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
-# 3. SEGURIDAD
+# 3. SEGURIDAD VISUAL (Login + Música + Onda)
 # ==========================================
+# Al llamar a esto, tu módulo utils_login se encarga de todo lo visual
 usuario = login.validar_acceso()
-if not usuario: st.stop()
+
+if not usuario:
+    st.stop() 
 
 # ==========================================
-# 4. LÓGICA DEL CEREBRO (PROMPT)
+# 4. CEREBRO Y EVIDENCIA
 # ==========================================
 
-# Aquí está la MAGIA para que no sea tan estricto:
-SYSTEM_INSTRUCTION = """
-Eres Quantum Reporter, un periodista de investigación colaborador y perspicaz.
-Tus instrucciones:
-1. CONTEXTO: Usa la información que el usuario provee (texto o imágenes).
-2. FLEXIBILIDAD: Si el usuario da un dato incorrecto (ej. fecha errónea), NO digas simplemente "no hay datos". BUSCA en tu conocimiento general y sugiere correcciones ("No encuentro registros en 1990, ¿quizás te refieres al evento de 1992?").
-3. MEMORIA: Recuerda lo que hemos hablado en este chat.
-4. FORMATO: Cuando des una conclusión final, usa estructura periodística (Titular, Lead, Cuerpo).
-5. TONO: Profesional, objetivo, pero conversacional y útil.
-"""
-
-# ==========================================
-# 5. INTERFAZ DE CHAT
-# ==========================================
-
-# A) Barra Lateral para Evidencias (Contexto Persistente)
+# A) Barra Lateral (Contexto Permanente)
 with st.sidebar:
-    st.title("🗄️ Sala de Evidencias")
-    st.caption("Sube aquí los documentos base para que el Reportero los tenga siempre presentes.")
+    st.markdown("### 🗄️ Sala de Evidencias")
+    st.caption("Los documentos aquí cargados serán la 'Verdad Base' para toda la sesión.")
     
-    evidencia_texto = st.text_area("Pegar Texto Base / Cable:", height=150)
-    uploaded_file = st.file_uploader("Subir Imagen", type=["jpg", "png", "jpeg"])
+    evidencia_texto = st.text_area("Pegar Texto Base / Cable:", height=200, placeholder="Pega aquí el reporte, noticia o datos...")
+    uploaded_file = st.file_uploader("Subir Imagen Evidencia", type=["jpg", "png", "jpeg"])
     
     imagen_pil = None
     if uploaded_file:
         imagen_pil = Image.open(uploaded_file)
-        st.image(imagen_pil, caption="Evidencia Visual", use_container_width=True)
+        st.image(imagen_pil, caption="Evidencia Visual Activa", use_container_width=True)
 
-    if st.button("🗑️ Borrar Memoria / Nueva Sesión"):
-        st.session_state.chat_history = []
+    st.markdown("---")
+    
+    # Botón PDF (Ahora sí funciona)
+    if "messages" in st.session_state and len(st.session_state.messages) > 0:
+        pdf_bytes = crear_pdf_reporte(st.session_state.messages, usuario)
+        st.download_button("📄 Descargar Bitácora PDF", pdf_bytes, "Reporte_Investigacion.pdf", "application/pdf")
+    
+    if st.button("🗑️ Nueva Investigación"):
+        st.session_state.messages = []
         st.rerun()
 
-    # Botón PDF (Descarga toda la charla)
-    if "chat_history" in st.session_state and len(st.session_state.chat_history) > 0:
-        st.markdown("---")
-        pdf_bytes = crear_pdf_reporte(st.session_state.chat_history, usuario)
-        st.download_button("📄 Descargar Bitácora PDF", pdf_bytes, "Reporte_Investigacion.pdf", "application/pdf")
+# B) TU CEREBRO GEM (Prompt Maestro)
+# ---------------------------------------------------------
+GEM_PROMPT = """
+Eres Quantum Reporter, un periodista de investigación de élite.
+Tu objetivo es analizar la información proporcionada con rigor, ética y profundidad.
+Si el usuario proporciona datos erróneos (como fechas), usa tu conocimiento general para sugerir correcciones amablemente.
+Estructura tus respuestas de forma periodística (Titular, Lead, Cuerpo).
+No inventes información que no esté en la evidencia, pero usa tu contexto histórico para enriquecer el análisis.
+"""
+# ---------------------------------------------------------
 
-# B) Inicialización del Chat en Memoria
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# C) Inicialización del Chat
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# C) Configurar Modelo con Memoria
-model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=SYSTEM_INSTRUCTION)
-chat = model.start_chat(history=st.session_state.chat_history)
+# Mostrar mensajes anteriores
+st.title("Quantum Reporter 🕵️‍♂️")
+st.caption(f"Agente Activo: {usuario}")
 
-# D) Mostrar Historial en Pantalla
-st.markdown("### 💬 Canal Seguro con Reportero")
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-for message in st.session_state.chat_history:
-    role = "user" if message.role == "user" else "assistant"
-    with st.chat_message(role):
-        st.markdown(message.parts[0].text)
-
-# E) INPUT DE USUARIO (La conversación)
-if prompt := st.chat_input("Escribe tu instrucción o pregunta..."):
+# D) Procesamiento del Chat (Lógica V3.0)
+if prompt := st.chat_input("Escribe tu instrucción de investigación..."):
     
-    # 1. Mostrar mensaje del usuario
+    # 1. Guardar y mostrar mensaje del usuario
+    # Guardamos como diccionario simple {"role": "user", "content": "texto"}
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-    
-    # 2. Construir el mensaje completo (Prompt + Evidencia de la sidebar)
-    #    Solo enviamos la evidencia si es la primera vez o si el usuario la acaba de cambiar,
-    #    pero para simplificar, la adjuntamos como contexto oculto en este turno.
-    
-    contenido_mensaje = [prompt]
-    if evidencia_texto:
-        contenido_mensaje.append(f"\n[CONTEXTO DE EVIDENCIA: {evidencia_texto}]")
-    if imagen_pil:
-        contenido_mensaje.append(imagen_pil)
 
-    # 3. Generar respuesta
+    # 2. Generar respuesta
     with st.chat_message("assistant"):
-        with st.spinner("Analizando archivos y redactando..."):
+        with st.spinner("Analizando evidencias..."):
             try:
-                response = chat.send_message(contenido_mensaje)
-                st.markdown(response.text)
+                # Construimos el Prompt Dinámico:
+                input_parts = []
                 
-                # Guardar en memoria de sesión para que no se borre al refrescar
-                st.session_state.chat_history = chat.history
+                # a) Instrucción del Sistema (Tu GEM)
+                input_parts.append(GEM_PROMPT)
                 
+                # b) Evidencia de la Sidebar (Siempre presente)
+                if evidencia_texto:
+                    input_parts.append(f"\n[EVIDENCIA DOCUMENTAL PRINCIPAL]:\n{evidencia_texto}\n")
+                if imagen_pil:
+                    input_parts.append(imagen_pil)
+                    input_parts.append("\n[NOTA: Analiza la imagen adjunta como parte de la evidencia]\n")
+
+                # c) Contexto de la conversación reciente (Últimos 4 mensajes)
+                history_context = "\n[HISTORIAL DE CHAT RECIENTE]:\n"
+                for msg in st.session_state.messages[-5:]: 
+                    history_context += f"{msg['role'].upper()}: {msg['content']}\n"
+                input_parts.append(history_context)
+                
+                # d) La pregunta actual
+                input_parts.append(f"\n[SOLICITUD ACTUAL]: {prompt}")
+
+                # LLAMADA AL MODELO
+                model = genai.GenerativeModel('gemini-2.0-flash')
+                response = model.generate_content(input_parts)
+                
+                text_response = response.text
+                st.markdown(text_response)
+                
+                # Guardar respuesta estandarizada
+                st.session_state.messages.append({"role": "model", "content": text_response})
+
             except Exception as e:
-                st.error(f"Error de conexión: {e}")
+                st.error(f"Error técnico: {str(e)}")
+                if "429" in str(e): st.warning("Tráfico alto. Espera unos segundos.")
