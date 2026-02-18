@@ -2,6 +2,52 @@ import streamlit as st
 import time
 import streamlit.components.v1 as components # Necesario para el Spline
 
+from fpdf import FPDF
+from datetime import datetime
+
+def crear_pdf_reporte(contenido, agente):
+    class PDF(FPDF):
+        def header(self):
+            # Logo o Título
+            self.set_font('Arial', 'B', 16)
+            self.cell(0, 10, 'Quantum Reporter - Informe Confidencial', 0, 1, 'C')
+            self.ln(5)
+            
+            # Subtítulo con fecha y agente
+            self.set_font('Arial', 'I', 10)
+            fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self.cell(0, 10, f'Fecha: {fecha} | Agente Investigador: {agente}', 0, 1, 'C')
+            self.line(10, 35, 200, 35) # Línea separadora
+            self.ln(10)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 8)
+            self.cell(0, 10, f'Página {self.page_no()} - Generado por Quantum Reporter AI', 0, 0, 'C')
+
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Título del Reporte
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "ANÁLISIS DE INTELIGENCIA", 0, 1)
+    pdf.ln(2)
+    
+    # Cuerpo del Texto
+    pdf.set_font("Arial", size=11)
+    
+    # Limpieza de caracteres para FPDF (Evita errores con emojis o símbolos raros)
+    # Reemplazamos los asteriscos de Markdown por nada o puntos para que se lea mejor
+    texto_limpio = contenido.replace('**', '').replace('__', '')
+    
+    # Codificación segura para español (acentos, ñ)
+    texto_seguro = texto_limpio.encode('latin-1', 'replace').decode('latin-1')
+    
+    pdf.multi_cell(0, 7, txt=texto_seguro)
+    
+    return pdf.output(dest='S').encode('latin-1')
+
 def validar_acceso():
     """
     Maneja el login con seguridad anti-fuerza bruta + Estética Quantum.
