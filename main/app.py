@@ -1,265 +1,151 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-import utils_login as login  # <--- Reutilizamos tu módulo de seguridad blindado
-
-# ==========================================
-# 📠 GENERADOR DE PDF
-# ==========================================
 from fpdf import FPDF
 from datetime import datetime
-
-def crear_pdf_reporte(contenido, agente):
-    class PDF(FPDF):
-        def header(self):
-            # Logo o Título
-            self.set_font('Arial', 'B', 16)
-            self.cell(0, 10, 'Quantum Reporter - Informe Confidencial', 0, 1, 'C')
-            self.ln(5)
-            
-            # Subtítulo con fecha y agente
-            self.set_font('Arial', 'I', 10)
-            fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-            self.cell(0, 10, f'Fecha: {fecha} | Agente Investigador: {agente}', 0, 1, 'C')
-            self.line(10, 35, 200, 35) # Línea separadora
-            self.ln(10)
-
-        def footer(self):
-            self.set_y(-15)
-            self.set_font('Arial', 'I', 8)
-            self.cell(0, 10, f'Página {self.page_no()} - Generado por Quantum Reporter AI', 0, 0, 'C')
-
-    pdf = PDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Título del Reporte
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "ANÁLISIS DE INTELIGENCIA", 0, 1)
-    pdf.ln(2)
-    
-    # Cuerpo del Texto
-    pdf.set_font("Arial", size=11)
-    
-    # Limpieza de caracteres para FPDF (Evita errores con emojis o símbolos raros)
-    texto_limpio = contenido.replace('**', '').replace('__', '')
-    
-    # Codificación segura para español (acentos, ñ)
-    texto_seguro = texto_limpio.encode('latin-1', 'replace').decode('latin-1')
-    
-    pdf.multi_cell(0, 7, txt=texto_seguro)
-    
-    return pdf.output(dest='S').encode('latin-1')
+import utils_login as login 
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL
+# 1. CONFIGURACIÓN E IMPORTACIONES
 # ==========================================
-st.set_page_config(
-    page_title="Quantum Reporter",
-    page_icon="📰",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Quantum Reporter Chat", page_icon="🕵️‍♂️", layout="wide")
 
-# Configuración de API Key (Usa las de prueba o producción según tu secrets.toml)
+# Configurar API
 try:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 except:
-    st.error("Error: No se encontró la GOOGLE_API_KEY en los secretos.")
+    st.error("Falta la API Key en secrets.toml")
     st.stop()
 
 # ==========================================
-# 2. ESTILO VISUAL "QUANTUM" (El mismo look profesional)
+# 2. ESTILOS Y PDF
 # ==========================================
 def inyectar_estilo_quantum():
     st.markdown("""
         <style>
-        .stApp {
-            background-color: #0E1117;
-            color: #FAFAFA;
-        }
-        div.stButton > button {
-            background-color: #002b36;
-            color: #00d4ff;
-            border: 1px solid #00d4ff;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            transition: all 0.3s ease;
-        }
-        div.stButton > button:hover {
-            background-color: #00d4ff;
-            color: #002b36;
-            border-color: #FAFAFA;
-            box-shadow: 0 0 15px #00d4ff;
-        }
-        h1, h2, h3 {
-            font-family: 'Helvetica Neue', sans-serif;
-            font-weight: 300; 
-        }
-        .reporte-box {
-            background-color: #161b22;
-            padding: 20px;
-            border-left: 5px solid #00d4ff;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
+        .stApp { background-color: #0E1117; color: #FAFAFA; }
+        .stChatMessage { border: 1px solid #30363d; border-radius: 10px; padding: 10px; }
         </style>
     """, unsafe_allow_html=True)
 
 inyectar_estilo_quantum()
 
+def crear_pdf_reporte(historial, agente):
+    class PDF(FPDF):
+        def header(self):
+            self.set_font('Arial', 'B', 14)
+            self.cell(0, 10, 'Bitácora de Investigación - Quantum Reporter', 0, 1, 'C')
+            self.ln(5)
+    
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=10)
+    
+    # Imprimir solo el último análisis o todo el chat
+    # Aquí imprimimos todo el intercambio para tener contexto
+    for mensaje in historial:
+        role = "REPORTERO" if mensaje["role"] == "model" else "INVESTIGADOR"
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(0, 10, txt=f"[{role}]", ln=True)
+        pdf.set_font("Arial", size=10)
+        
+        texto = mensaje["parts"][0] if isinstance(mensaje["parts"], list) else mensaje["parts"]
+        texto_seguro = texto.encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 6, txt=texto_seguro)
+        pdf.ln(3)
+        
+    return pdf.output(dest='S').encode('latin-1')
+
 # ==========================================
-# 3. ZONA DE SEGURIDAD (Login Modular)
+# 3. SEGURIDAD
 # ==========================================
 usuario = login.validar_acceso()
-if not usuario:
-    st.stop()
+if not usuario: st.stop()
 
 # ==========================================
-# 🚀 AQUI COMIENZA QUANTUM REPORTER
+# 4. LÓGICA DEL CEREBRO (PROMPT)
 # ==========================================
 
-# Encabezado
-col1, col2 = st.columns([1, 5])
-with col1:
-    st.markdown("# 🕵️‍♂️")
-with col2:
-    st.markdown("# Quantum Reporter")
-    st.caption(f"Panel de Investigación Activo | Agente: **{usuario}**")
-
-st.markdown("---")
-
-# Instrucciones del Sistema (El Cerebro Periodístico)
-SYSTEM_PROMPT = """
-Eres Quantum Reporter, un periodista de investigación de élite.
-Tu misión es analizar la información proporcionada (texto o imagen) con rigor científico y ética periodística.
-
-NORMAS OBLIGATORIAS:
-
-Objetivo y Metas:
-
-
-
-* Actuar como un reportero profesional dedicado a generar contenido veraz, ameno y adaptado para redes sociales.
-
-* Basar cada nota o reportaje exclusivamente en fuentes de información confiables y verificables.
-
-* Realizar una búsqueda profunda para garantizar que el contenido sea completo y preciso.
-
-* Adaptar el estilo de redacción para una audiencia de adultos jóvenes, utilizando un lenguaje claro, conciso y atractivo.
-
-
-
-Comportamientos y Reglas:
-
-
-
-1) Proceso de Investigación:
-
-a) Al recibir un tema, identifica y utiliza fuentes periodísticas o académicas de alta credibilidad.
-
-b) Prioriza la verificación de hechos antes de redactar cualquier línea.
-
-c) Si la información es insuficiente o de fuentes dudosas, informa al usuario sobre la falta de datos confiables.
-
-
-
-2) Redacción y Estilo:
-
-a) Escribe notas cortas pero con un valor informativo alto.
-
-b) Utiliza un tono profesional pero cercano, ideal para plataformas como Instagram, Twitter (X) o TikTok.
-
-c) Evita el uso de tecnicismos excesivos sin explicación; mantén el lenguaje accesible para adultos jóvenes.
-
-d) Estructura la nota con un titular llamativo, un cuerpo informativo y una conclusión o pregunta para fomentar la interacción.
-
-
-
-3) Contenido Visual:
-
-a) Para cada nota, genera una descripción detallada para una imagen que ilustre el reportaje de manera efectiva.
-
-b) Asegúrate de que la imagen propuesta sea coherente con el tono de la noticia.
-
-
-
-Tono General:
-
-* Informativo, ético y profesional.
-
-* Dinámico, moderno y atractivo.
-
-* Objetivo y transparente respecto a las fuentes utilizadas.
-5. AL FINAL: Genera un "PROMPT DE IMAGEN" detallado, en inglés, para generar una ilustración fotorrealista del tema.
+# Aquí está la MAGIA para que no sea tan estricto:
+SYSTEM_INSTRUCTION = """
+Eres Quantum Reporter, un periodista de investigación colaborador y perspicaz.
+Tus instrucciones:
+1. CONTEXTO: Usa la información que el usuario provee (texto o imágenes).
+2. FLEXIBILIDAD: Si el usuario da un dato incorrecto (ej. fecha errónea), NO digas simplemente "no hay datos". BUSCA en tu conocimiento general y sugiere correcciones ("No encuentro registros en 1990, ¿quizás te refieres al evento de 1992?").
+3. MEMORIA: Recuerda lo que hemos hablado en este chat.
+4. FORMATO: Cuando des una conclusión final, usa estructura periodística (Titular, Lead, Cuerpo).
+5. TONO: Profesional, objetivo, pero conversacional y útil.
 """
 
-# Selección de Fuente
-tipo_investigacion = st.radio("Selecciona el tipo de evidencia:", ["📝 Texto / Noticia", "📸 Imagen / Documento"], horizontal=True)
+# ==========================================
+# 5. INTERFAZ DE CHAT
+# ==========================================
 
-user_input = ""
-imagen_procesar = None
+# A) Barra Lateral para Evidencias (Contexto Persistente)
+with st.sidebar:
+    st.title("🗄️ Sala de Evidencias")
+    st.caption("Sube aquí los documentos base para que el Reportero los tenga siempre presentes.")
+    
+    evidencia_texto = st.text_area("Pegar Texto Base / Cable:", height=150)
+    uploaded_file = st.file_uploader("Subir Imagen", type=["jpg", "png", "jpeg"])
+    
+    imagen_pil = None
+    if uploaded_file:
+        imagen_pil = Image.open(uploaded_file)
+        st.image(imagen_pil, caption="Evidencia Visual", use_container_width=True)
 
-if "Texto" in tipo_investigacion:
-    user_input = st.text_area("Pega aquí el texto, noticia o cable a investigar:", height=200)
+    if st.button("🗑️ Borrar Memoria / Nueva Sesión"):
+        st.session_state.chat_history = []
+        st.rerun()
 
-else:
-    uploaded_file = st.file_uploader("Sube una imagen (Foto, Captura, Documento escaneado)", type=["jpg", "png", "jpeg"])
-    if uploaded_file is not None:
-        imagen_procesar = Image.open(uploaded_file)
-        st.image(imagen_procesar, caption="Evidencia Cargada", width=400)
-        user_input = st.text_input("Contexto adicional (Opcional):", placeholder="¿Qué quieres saber de esta imagen?")
+    # Botón PDF (Descarga toda la charla)
+    if "chat_history" in st.session_state and len(st.session_state.chat_history) > 0:
+        st.markdown("---")
+        pdf_bytes = crear_pdf_reporte(st.session_state.chat_history, usuario)
+        st.download_button("📄 Descargar Bitácora PDF", pdf_bytes, "Reporte_Investigacion.pdf", "application/pdf")
 
-# Botón de Acción
-if st.button("🔍 Iniciar Investigación Profunda"):
-    if not user_input and not imagen_procesar:
-        st.warning("⚠️ Por favor ingresa texto o sube una evidencia visual.")
-    else:
-        with st.spinner("🕵️‍♂️ Analizando hechos, verificando fuentes y redactando reporte..."):
+# B) Inicialización del Chat en Memoria
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# C) Configurar Modelo con Memoria
+model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_INSTRUCTION)
+chat = model.start_chat(history=st.session_state.chat_history)
+
+# D) Mostrar Historial en Pantalla
+st.markdown("### 💬 Canal Seguro con Reportero")
+
+for message in st.session_state.chat_history:
+    role = "user" if message.role == "user" else "assistant"
+    with st.chat_message(role):
+        st.markdown(message.parts[0].text)
+
+# E) INPUT DE USUARIO (La conversación)
+if prompt := st.chat_input("Escribe tu instrucción o pregunta..."):
+    
+    # 1. Mostrar mensaje del usuario
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    # 2. Construir el mensaje completo (Prompt + Evidencia de la sidebar)
+    #    Solo enviamos la evidencia si es la primera vez o si el usuario la acaba de cambiar,
+    #    pero para simplificar, la adjuntamos como contexto oculto en este turno.
+    
+    contenido_mensaje = [prompt]
+    if evidencia_texto:
+        contenido_mensaje.append(f"\n[CONTEXTO DE EVIDENCIA: {evidencia_texto}]")
+    if imagen_pil:
+        contenido_mensaje.append(imagen_pil)
+
+    # 3. Generar respuesta
+    with st.chat_message("assistant"):
+        with st.spinner("Analizando archivos y redactando..."):
             try:
-                # Configuración del Modelo (Usamos Gemini Pro Vision o Texto)
-                model = genai.GenerativeModel('gemini-2.0-flash') # Modelo rápido y potente
-                
-                response = None
-                
-                # A) Análisis de Solo Texto
-                if imagen_procesar is None:
-                    prompt_completo = f"{SYSTEM_PROMPT}\n\nANALIZA ESTA INFORMACIÓN:\n{user_input}"
-                    response = model.generate_content(prompt_completo)
-                
-                # B) Análisis de Imagen + Texto
-                else:
-                    prompt_completo = [SYSTEM_PROMPT, "ANALIZA ESTA IMAGEN Y EL CONTEXTO:", user_input if user_input else "Analiza todo lo visible.", imagen_procesar]
-                    response = model.generate_content(prompt_completo)
-                
-                # Mostrar Resultado
-                st.markdown("### 📠 Reporte Confidencial")
-                st.markdown('<div class="reporte-box">', unsafe_allow_html=True)
+                response = chat.send_message(contenido_mensaje)
                 st.markdown(response.text)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                # --- GENERACIÓN DE PDF ---
-                st.success("✅ Investigación completada.")
                 
-                # Creamos el PDF en memoria
-                pdf_bytes = crear_pdf_reporte(response.text, usuario)
+                # Guardar en memoria de sesión para que no se borre al refrescar
+                st.session_state.chat_history = chat.history
                 
-                # Botón de Descarga
-                st.download_button(
-                    label="📄 Descargar Informe Oficial (PDF)",
-                    data=pdf_bytes,
-                    file_name=f"Reporte_Quantum_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                    mime="application/pdf"
-                )
-                
-                # Botón de Copiar (Truco visual)
-                st.caption("Fin del reporte. Verifica la información antes de publicar.")
-
             except Exception as e:
-                st.error(f"❌ Error en la investigación: {str(e)}")
-                if "429" in str(e):
-                    st.warning("⏳ Límite de velocidad alcanzado (API Gratuita). Espera un momento.")
-
-# Pie de página
-st.markdown("---")
-st.caption("Quantum Reporter v1.0 | Ethical AI Journalism")
+                st.error(f"Error de conexión: {e}")
