@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 # ==========================================
 # 🔐 1. LOGIN DE SEGURIDAD
 # ==========================================
-st.set_page_config(page_title="Quantum Acsess Supplements", page_icon="💊")
+st.set_page_config(page_title="Quantum Reporter", page_icon="☯")
 if "usuario_activo" not in st.session_state: st.session_state.usuario_activo = None
 
 # ==========================================
@@ -18,7 +18,7 @@ if "usuario_activo" not in st.session_state: st.session_state.usuario_activo = N
 if "usuario_activo" not in st.session_state: st.session_state.usuario_activo = None
 
 if not st.session_state.usuario_activo:
-    st.markdown("## 🔐 Quantum Supplements")
+    st.markdown("## 🔐 Quantum Reporter")
     
     # Animación 3D
     try: st.components.v1.iframe("https://my.spline.design/claritystream-Vcf5uaN9MQgIR4VGFA5iU6Es/", height=400)
