@@ -254,9 +254,16 @@ if st.session_state.modo_prensa:
     elif tipo_contenido == "Artículo de Salud - Tema General":
         tema = st.text_input("Tema del artículo:", placeholder="Ej: Suplementación deportiva, longevidad")
         
+        # Mapeo más robusto de longitudes
+        longitud_opciones = {
+            "Corto (300 palabras)": 300,
+            "Medio (600 palabras)": 600,
+            "Largo (1000 palabras)": 1000
+        }
+        
         col1, col2 = st.columns(2)
         with col1:
-            longitud = st.selectbox("Longitud:", ["Corto (300 palabras)", "Medio (600 palabras)", "Largo (1000 palabras)"])
+            longitud = st.selectbox("Longitud:", list(longitud_opciones.keys()))
         with col2:
             incluir_expertos = st.checkbox("Incluir referencias a expertos del directorio", value=True)
         
@@ -270,7 +277,7 @@ if st.session_state.modo_prensa:
                         for m in TODOS_LOS_MEDICOS[:3]:
                             expertos_ref += f"- {m.get('nombre')}, {m.get('especialidad')}, {m.get('ciudad')}\n"
                     
-                    palabras = longitud.split("(")[1].split(" ")[0]
+                    palabras = longitud_opciones.get(longitud, 600)
                     
                     prompt_articulo = f"""
                     Actúa como un periodista especializado en salud y bienestar.
@@ -315,12 +322,19 @@ if st.session_state.modo_prensa:
             datos_medico = next((m for m in TODOS_LOS_MEDICOS if m.get('nombre') == medico_seleccionado), None)
             
             if datos_medico:
-                formato = st.radio("Formato:", ["Bio Corta (100 palabras)", "Bio Media (250 palabras)", "Bio Completa (500 palabras)"])
+                # Mapeo más robusto de formatos
+                formato_opciones = {
+                    "Bio Corta (100 palabras)": 100,
+                    "Bio Media (250 palabras)": 250,
+                    "Bio Completa (500 palabras)": 500
+                }
+                
+                formato = st.radio("Formato:", list(formato_opciones.keys()))
                 
                 if st.button("🚀 Generar Perfil"):
                     with st.spinner("Generando perfil profesional..."):
                         try:
-                            palabras = formato.split("(")[1].split(" ")[0]
+                            palabras = formato_opciones.get(formato, 250)
                             
                             prompt_perfil = f"""
                             Actúa como un redactor de biografías profesionales para medios de comunicación.
