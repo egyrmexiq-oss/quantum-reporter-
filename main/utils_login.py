@@ -28,7 +28,7 @@ def validar_acceso():
     # ============================================
     
     # A) Título
-    st.markdown("## 🔐 Quantum Supplements")
+    st.markdown("## 🔐 Quantum Reporter")
     st.caption("Solicita acceso por SMS o WhatsApp")
 
     # B) Onda Senoidal (Spline) - Integrada en el Login
