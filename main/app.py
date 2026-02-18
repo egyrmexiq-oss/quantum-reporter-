@@ -146,11 +146,304 @@ with st.sidebar:
 
     st.markdown("---")
     st.link_button("📝 Regístrate como Médico", URL_FORMULARIO)
+    
+    # ==========================================
+    # 📰 SISTEMA EXPERTO PARA LA PRENSA
+    # ==========================================
+    st.markdown("---")
+    st.markdown("### 📰 Sistema de Prensa")
+    if st.button("🎯 Generar Contenido"):
+        st.session_state.modo_prensa = True
+        st.rerun()
 
 # ==========================================
 # 💬 4. CHAT PRINCIPAL
 # ==========================================
 
+# Inicializar estado del modo prensa
+if "modo_prensa" not in st.session_state:
+    st.session_state.modo_prensa = False
+
+# ==========================================
+# 📰 SISTEMA EXPERTO PARA LA PRENSA
+# ==========================================
+if st.session_state.modo_prensa:
+    st.markdown('<h1 style="text-align: center; color: #00C2FF;">📰 Sistema Experto para la Prensa</h1>', unsafe_allow_html=True)
+    st.caption("Generador de Contenido Profesional para Medios")
+    
+    if st.button("⬅️ Volver al Chat Principal"):
+        st.session_state.modo_prensa = False
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # Selector de tipo de contenido
+    tipo_contenido = st.selectbox(
+        "Tipo de Contenido:",
+        [
+            "Comunicado de Prensa - Profesional Individual",
+            "Artículo de Salud - Tema General",
+            "Perfil Profesional para Medios",
+            "Nota de Prensa - Directorio Médico"
+        ]
+    )
+    
+    if tipo_contenido == "Comunicado de Prensa - Profesional Individual":
+        if TODOS_LOS_MEDICOS:
+            nombres_medicos = [m.get('nombre', 'Sin nombre') for m in TODOS_LOS_MEDICOS]
+            medico_seleccionado = st.selectbox("Seleccionar Profesional:", nombres_medicos)
+            
+            datos_medico = next((m for m in TODOS_LOS_MEDICOS if m.get('nombre') == medico_seleccionado), None)
+            
+            if datos_medico:
+                col1, col2 = st.columns(2)
+                with col1:
+                    enfoque = st.text_input("Enfoque del comunicado:", placeholder="Ej: Nueva consulta, logro profesional")
+                with col2:
+                    tono = st.selectbox("Tono:", ["Profesional", "Informativo", "Inspiracional"])
+                
+                if st.button("🚀 Generar Comunicado"):
+                    with st.spinner("Generando contenido profesional..."):
+                        try:
+                            prompt_prensa = f"""
+                            Actúa como un experto redactor de comunicados de prensa médicos.
+                            
+                            Genera un comunicado de prensa profesional con la siguiente información:
+                            
+                            PROFESIONAL:
+                            - Nombre: {datos_medico.get('nombre', 'N/A')}
+                            - Especialidad: {datos_medico.get('especialidad', 'N/A')}
+                            - Ciudad: {datos_medico.get('ciudad', 'N/A')}
+                            - Teléfono: {datos_medico.get('telefono', 'N/A')}
+                            - Descripción: {datos_medico.get('descripcion', 'N/A')}
+                            
+                            DIRECTRICES:
+                            - Enfoque: {enfoque if enfoque else 'Presentación profesional general'}
+                            - Tono: {tono}
+                            - Formato estándar de comunicado de prensa
+                            - Incluir encabezado con fecha y lugar
+                            - Estructura: Titular, subtítulo, cuerpo (3-4 párrafos), información de contacto
+                            - Longitud: 300-400 palabras
+                            - Usar lenguaje profesional y periodístico
+                            - Destacar credenciales y experiencia
+                            
+                            Genera SOLO el comunicado, sin explicaciones adicionales.
+                            """
+                            
+                            modelo = genai.GenerativeModel('gemini-2.5-flash')
+                            respuesta = modelo.generate_content(prompt_prensa)
+                            
+                            st.markdown("### 📄 Comunicado Generado")
+                            st.markdown("---")
+                            st.markdown(respuesta.text)
+                            st.markdown("---")
+                            
+                            # Opción de descarga
+                            st.download_button(
+                                label="📥 Descargar Comunicado",
+                                data=respuesta.text,
+                                file_name=f"comunicado_{datos_medico.get('nombre', 'medico').replace(' ', '_')}.txt",
+                                mime="text/plain"
+                            )
+                            
+                        except Exception as e:
+                            st.error(f"Error al generar el contenido: {e}")
+        else:
+            st.warning("No hay profesionales registrados en el directorio.")
+    
+    elif tipo_contenido == "Artículo de Salud - Tema General":
+        tema = st.text_input("Tema del artículo:", placeholder="Ej: Suplementación deportiva, longevidad")
+        
+        # Mapeo más robusto de longitudes
+        longitud_opciones = {
+            "Corto (300 palabras)": 300,
+            "Medio (600 palabras)": 600,
+            "Largo (1000 palabras)": 1000
+        }
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            longitud = st.selectbox("Longitud:", list(longitud_opciones.keys()))
+        with col2:
+            incluir_expertos = st.checkbox("Incluir referencias a expertos del directorio", value=True)
+        
+        if st.button("🚀 Generar Artículo"):
+            with st.spinner("Generando artículo..."):
+                try:
+                    expertos_ref = ""
+                    if incluir_expertos and TODOS_LOS_MEDICOS:
+                        # Seleccionar algunos expertos relevantes
+                        expertos_ref = "\n\nPuedes mencionar a estos expertos del directorio si son relevantes:\n"
+                        for m in TODOS_LOS_MEDICOS[:3]:
+                            expertos_ref += f"- {m.get('nombre')}, {m.get('especialidad')}, {m.get('ciudad')}\n"
+                    
+                    palabras = longitud_opciones.get(longitud, 600)
+                    
+                    prompt_articulo = f"""
+                    Actúa como un periodista especializado en salud y bienestar.
+                    
+                    Escribe un artículo periodístico sobre: {tema}
+                    
+                    ESPECIFICACIONES:
+                    - Longitud aproximada: {palabras} palabras
+                    - Estructura: Título atractivo, introducción, desarrollo (3-4 secciones), conclusión
+                    - Tono: Profesional pero accesible
+                    - Incluir datos científicos cuando sea relevante
+                    - Formato periodístico estándar
+                    - Usar subtítulos para organizar el contenido
+                    {expertos_ref}
+                    
+                    Genera SOLO el artículo, sin explicaciones adicionales.
+                    """
+                    
+                    modelo = genai.GenerativeModel('gemini-2.5-flash')
+                    respuesta = modelo.generate_content(prompt_articulo)
+                    
+                    st.markdown("### 📰 Artículo Generado")
+                    st.markdown("---")
+                    st.markdown(respuesta.text)
+                    st.markdown("---")
+                    
+                    st.download_button(
+                        label="📥 Descargar Artículo",
+                        data=respuesta.text,
+                        file_name=f"articulo_{tema.replace(' ', '_')[:30]}.txt",
+                        mime="text/plain"
+                    )
+                    
+                except Exception as e:
+                    st.error(f"Error al generar el contenido: {e}")
+    
+    elif tipo_contenido == "Perfil Profesional para Medios":
+        if TODOS_LOS_MEDICOS:
+            nombres_medicos = [m.get('nombre', 'Sin nombre') for m in TODOS_LOS_MEDICOS]
+            medico_seleccionado = st.selectbox("Seleccionar Profesional:", nombres_medicos)
+            
+            datos_medico = next((m for m in TODOS_LOS_MEDICOS if m.get('nombre') == medico_seleccionado), None)
+            
+            if datos_medico:
+                # Mapeo más robusto de formatos
+                formato_opciones = {
+                    "Bio Corta (100 palabras)": 100,
+                    "Bio Media (250 palabras)": 250,
+                    "Bio Completa (500 palabras)": 500
+                }
+                
+                formato = st.radio("Formato:", list(formato_opciones.keys()))
+                
+                if st.button("🚀 Generar Perfil"):
+                    with st.spinner("Generando perfil profesional..."):
+                        try:
+                            palabras = formato_opciones.get(formato, 250)
+                            
+                            prompt_perfil = f"""
+                            Actúa como un redactor de biografías profesionales para medios de comunicación.
+                            
+                            Crea un perfil profesional basado en:
+                            
+                            DATOS:
+                            - Nombre: {datos_medico.get('nombre', 'N/A')}
+                            - Especialidad: {datos_medico.get('especialidad', 'N/A')}
+                            - Ciudad: {datos_medico.get('ciudad', 'N/A')}
+                            - Descripción: {datos_medico.get('descripcion', 'N/A')}
+                            
+                            FORMATO:
+                            - Longitud: aproximadamente {palabras} palabras
+                            - Estilo: Tercera persona, profesional
+                            - Destacar credenciales, experiencia y áreas de especialización
+                            - Apropiado para kits de prensa y medios
+                            
+                            Genera SOLO el perfil, sin explicaciones adicionales.
+                            """
+                            
+                            modelo = genai.GenerativeModel('gemini-2.5-flash')
+                            respuesta = modelo.generate_content(prompt_perfil)
+                            
+                            st.markdown("### 👤 Perfil Profesional")
+                            st.markdown("---")
+                            st.markdown(respuesta.text)
+                            st.markdown("---")
+                            
+                            st.download_button(
+                                label="📥 Descargar Perfil",
+                                data=respuesta.text,
+                                file_name=f"perfil_{datos_medico.get('nombre', 'medico').replace(' ', '_')}.txt",
+                                mime="text/plain"
+                            )
+                            
+                        except Exception as e:
+                            st.error(f"Error al generar el contenido: {e}")
+        else:
+            st.warning("No hay profesionales registrados en el directorio.")
+    
+    elif tipo_contenido == "Nota de Prensa - Directorio Médico":
+        enfoque = st.text_area(
+            "Enfoque de la nota:",
+            placeholder="Ej: Lanzamiento del directorio, expansión a nuevas ciudades, hito de profesionales registrados",
+            height=100
+        )
+        
+        if st.button("🚀 Generar Nota de Prensa"):
+            with st.spinner("Generando nota de prensa..."):
+                try:
+                    estadisticas = f"""
+                    Estadísticas del directorio:
+                    - Total de profesionales: {len(TODOS_LOS_MEDICOS)}
+                    - Ciudades cubiertas: {len(set(str(m.get('ciudad', 'General')) for m in TODOS_LOS_MEDICOS))}
+                    - Especialidades: {len(set(str(m.get('especialidad', 'General')) for m in TODOS_LOS_MEDICOS))}
+                    """
+                    
+                    prompt_nota = f"""
+                    Actúa como un redactor de notas de prensa corporativas.
+                    
+                    Genera una nota de prensa sobre el directorio médico de Quantum Supplements.
+                    
+                    CONTEXTO:
+                    Quantum Supplements es una plataforma de asesoría en suplementación y biohacking
+                    con un directorio de profesionales de la salud.
+                    
+                    {estadisticas}
+                    
+                    ENFOQUE: {enfoque if enfoque else 'Presentación general del directorio'}
+                    
+                    ESTRUCTURA:
+                    - Titular principal
+                    - Subtítulo
+                    - Fecha y lugar (usar formato: Ciudad, Fecha - )
+                    - Lead (párrafo inicial con lo más importante)
+                    - Desarrollo (2-3 párrafos)
+                    - Información corporativa
+                    - Contacto
+                    
+                    Tono: Profesional, corporativo
+                    Longitud: 400-500 palabras
+                    
+                    Genera SOLO la nota, sin explicaciones adicionales.
+                    """
+                    
+                    modelo = genai.GenerativeModel('gemini-2.5-flash')
+                    respuesta = modelo.generate_content(prompt_nota)
+                    
+                    st.markdown("### 📰 Nota de Prensa")
+                    st.markdown("---")
+                    st.markdown(respuesta.text)
+                    st.markdown("---")
+                    
+                    st.download_button(
+                        label="📥 Descargar Nota",
+                        data=respuesta.text,
+                        file_name="nota_prensa_quantum_directorio.txt",
+                        mime="text/plain"
+                    )
+                    
+                except Exception as e:
+                    st.error(f"Error al generar el contenido: {e}")
+    
+    st.stop()
+
+# ==========================================
+# CHAT PRINCIPAL NORMAL
+# ==========================================
 st.markdown('<h1 style="text-align: center; color: #00C2FF;">Quantum AI Health</h1>', unsafe_allow_html=True)
 st.caption(f"Asistente Médico Inteligente - Nivel {nivel}")
 
