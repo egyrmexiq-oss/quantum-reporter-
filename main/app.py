@@ -1,182 +1,151 @@
 import streamlit as st
 import google.generativeai as genai
-import pandas as pd
-import streamlit.components.v1 as components
+from PIL import Image
+import utils_login as login  # <--- Reutilizamos tu módulo de seguridad blindado
 
 # ==========================================
-# ⚙️ CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN INICIAL
 # ==========================================
-# ==========================================
-# 🔐 1. LOGIN DE SEGURIDAD
-# ==========================================
-st.set_page_config(page_title="Quantum Reporter", page_icon="☯")
-if "usuario_activo" not in st.session_state: st.session_state.usuario_activo = None
+st.set_page_config(
+    page_title="Quantum Reporter",
+    page_icon="📰",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# ==========================================
-# 🔐 1. LOGIN DE SEGURIDAD
-# ==========================================
-if "usuario_activo" not in st.session_state: st.session_state.usuario_activo = None
-
-if not st.session_state.usuario_activo:
-    st.markdown("## 🔐 Quantum Reporter")
-    
-    # Animación 3D
-    try: st.components.v1.iframe("https://my.spline.design/claritystream-Vcf5uaN9MQgIR4VGFA5iU6Es/", height=400)
-    except: pass
-    
-    # Música
-    st.audio("https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3", loop=True, autoplay=True)
-    
-    # 👇 AQUÍ ESTÁ EL MENSAJE NUEVO
-    st.info("🔑 Para ingresar, usa la clave: **DEMO**")
-    
-    c = st.text_input("Clave de Acceso:", type="password")
-    if st.button("Entrar"):
-        # NOTA: Asegúrate de tener "DEMO" en tus 'secrets' o permite la entrada aquí
-        # Modifiqué esto para que acepte "DEMO" directamente o busque en secrets
-        if c.strip() == "DEMO" or (c.strip() in st.secrets["access_keys"]):
-            # Si entra con DEMO, le ponemos un nombre genérico
-            nombre = "Visitante" if c.strip() == "DEMO" else st.secrets["access_keys"][c.strip()]
-            st.session_state.usuario_activo = nombre
-            st.rerun()
-        else: st.error("Acceso Denegado")
+# Configuración de API Key (Usa las de prueba o producción según tu secrets.toml)
+try:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+except:
+    st.error("Error: No se encontró la GOOGLE_API_KEY en los secretos.")
     st.stop()
 
 # ==========================================
-# 💎 2. CARGA DE DATOS
+# 2. ESTILO VISUAL "QUANTUM" (El mismo look profesional)
 # ==========================================
-try: genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-except: st.error("Falta API Key")
-
-URL_GOOGLE_SHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzh0kFdEwymIqv7sNd7dFpWCg09GtGipbYe0PMsKc_hzRbDoNLBHUk54ROdIceVGGZlYGeYM5HMgH0/pub?output=csv"
-URL_FORMULARIO = "https://docs.google.com/forms/d/e/1FAIpQLSdQBMZymJhY1mdEfKavnPpYnypaQ67S5Fp8AJ54L5n2P-Fvqg/viewform?usp=header"
-
-@st.cache_data(ttl=60)
-def cargar_medicos():
-    try:
-        df = pd.read_csv(URL_GOOGLE_SHEET)
-        df.columns = [c.strip().lower() for c in df.columns]
-        mapa = {}
-        for col in df.columns:
-            if "nombre" in col: mapa[col] = "nombre"
-            elif "especialidad" in col: mapa[col] = "especialidad"
-            elif "descripci" in col: mapa[col] = "descripcion"
-            elif "tel" in col: mapa[col] = "telefono"
-            elif "ciudad" in col: mapa[col] = "ciudad"
-            elif "aprobado" in col: mapa[col] = "aprobado"
-        df = df.rename(columns=mapa)
-        if 'aprobado' in df.columns:
-            return df[df['aprobado'].astype(str).str.upper().str.contains('SI')].to_dict(orient='records')
-        return []
-    except: return []
-
-TODOS_LOS_MEDICOS = cargar_medicos()
-
-# Preparación de la IA
-if TODOS_LOS_MEDICOS:
-    ciudades = sorted(list(set(str(m.get('ciudad', 'General')).title() for m in TODOS_LOS_MEDICOS)))
-    ciudades.insert(0, "Todas las Ubicaciones")
-    
-    info_medicos = [f"ID: {m.get('nombre')} | Esp: {m.get('especialidad')} | Cd: {m.get('ciudad')}" for m in TODOS_LOS_MEDICOS]
-    TEXTO_DIRECTORIO = "\n".join(info_medicos)
-    
-    INSTRUCCION_EXTRA = f"""
-    ERES EL "SENIOR ADVISOR DE QUANTUM SUPPLEMENTS". Tu especialidad es la suplementación estratégica, 
-    el biohacking y la optimización del rendimiento humano (físico y mental).
-
-    1. OBJETIVOS CLAROS: Si el usuario es vago, pregunta si busca enfoque, longevidad, sueño o energía.
-    2. SINERGIAS: Explica cómo ciertos suplementos funcionan mejor juntos.
-    3. SEGURIDAD: Advierte sobre no exceder dosis y consultar especialistas.
-    4. RECOMENDACIÓN: Busca en esta lista: {{TEXTO_DIRECTORIO}} y recomienda al experto ideal.
-    """
-else:
-    ciudades = ["Mundo"]
-    INSTRUCCION_EXTRA = "Actúa como médico general."
-
-# ==========================================
-# 📱 3. BARRA LATERAL (SIDEBAR)
-# ==========================================
-with st.sidebar:
-    try: st.image("Logo_quantum.png", use_container_width=True)
-    except: st.header("QUANTUM")
-    
-    st.success(f"Hola, {st.session_state.usuario_activo}")
-    
-    # Contador de Visitas
-    st.markdown("---")
+def inyectar_estilo_quantum():
     st.markdown("""
-    <div style="background-color: #262730; padding: 10px; border-radius: 5px; text-align: center;">
-        <span style="color: white; font-weight: bold;">📊 Visitas:</span>
-        <img src="https://api.visitorbadge.io/api/visitors?path=quantum-health-ai.com&label=&countColor=%2300C2FF&style=flat&labelStyle=none" style="height: 20px;" />
-    </div>
+        <style>
+        .stApp {
+            background-color: #0E1117;
+            color: #FAFAFA;
+        }
+        div.stButton > button {
+            background-color: #002b36;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+        div.stButton > button:hover {
+            background-color: #00d4ff;
+            color: #002b36;
+            border-color: #FAFAFA;
+            box-shadow: 0 0 15px #00d4ff;
+        }
+        h1, h2, h3 {
+            font-family: 'Helvetica Neue', sans-serif;
+            font-weight: 300; 
+        }
+        .reporte-box {
+            background-color: #161b22;
+            padding: 20px;
+            border-left: 5px solid #00d4ff;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        </style>
     """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### ⚙️ Ajustes")
-    nivel = st.radio("Nivel de Respuesta:", ["Básica", "Media", "Experta"])
-    
-    if st.button("🗑️ Limpiar Chat"): st.session_state.mensajes = []; st.rerun()
-    if st.button("🔒 Salir"): st.session_state.usuario_activo = None; st.rerun()
 
-    st.markdown("---")
-    st.markdown("### 👨‍⚕️ Directorio")
-    if TODOS_LOS_MEDICOS:
-        filtro = st.selectbox("📍 Ciudad:", ciudades)
-        lista = TODOS_LOS_MEDICOS if filtro == "Todas las Ubicaciones" else [m for m in TODOS_LOS_MEDICOS if str(m.get('ciudad')).title() == filtro]
-        
-        if lista:
-            if "idx" not in st.session_state: st.session_state.idx = 0
-            m = lista[st.session_state.idx % len(lista)]
-            
-            # Tarjeta HTML
-            tarjeta = (
-                f'<div style="background-color: #262730; padding: 15px; border-radius: 10px; border: 1px solid #444; margin-bottom: 10px;">'
-                f'<h4 style="margin:0; color:white;">{m.get("nombre","Dr.")}</h4>'
-                f'<div style="color:#00C2FF; font-weight:bold;">{m.get("especialidad")}</div>'
-                f'<small style="color:#bbb;">{m.get("ciudad")}</small>'
-                f'<div style="font-size: 0.9em; margin-top: 5px;">📞 {m.get("telefono","--")}</div>'
-                f'</div>'
-            )
-            st.markdown(tarjeta, unsafe_allow_html=True)
-            
-            c1, c2 = st.columns(2)
-            if c1.button("⬅️"): st.session_state.idx -= 1; st.rerun()
-            if c2.button("➡️"): st.session_state.idx += 1; st.rerun()
-        else: st.info("Sin resultados.")
-
-    st.markdown("---")
-    st.link_button("📝 Regístrate como Médico", URL_FORMULARIO)
+inyectar_estilo_quantum()
 
 # ==========================================
-# 💬 4. CHAT PRINCIPAL
+# 3. ZONA DE SEGURIDAD (Login Modular)
+# ==========================================
+usuario = login.validar_acceso()
+if not usuario:
+    st.stop()
+
+# ==========================================
+# 🚀 AQUI COMIENZA QUANTUM REPORTER
 # ==========================================
 
-st.markdown('<h1 style="text-align: center; color: #00C2FF;">Quantum AI Health</h1>', unsafe_allow_html=True)
-st.caption(f"Asistente Médico Inteligente - Nivel {nivel}")
+# Encabezado
+col1, col2 = st.columns([1, 5])
+with col1:
+    st.markdown("# 🕵️‍♂️")
+with col2:
+    st.markdown("# Quantum Reporter")
+    st.caption(f"Panel de Investigación Activo | Agente: **{usuario}**")
 
-if "mensajes" not in st.session_state: 
-    st.session_state.mensajes = [{"role": "assistant", "content": "Hola, soy Quantum. ¿Cómo te sientes hoy?"}]
+st.markdown("---")
 
-for msg in st.session_state.mensajes:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"])
+# Instrucciones del Sistema (El Cerebro Periodístico)
+SYSTEM_PROMPT = """
+Eres Quantum Reporter, un periodista de investigación de élite.
+Tu misión es analizar la información proporcionada (texto o imagen) con rigor científico y ética periodística.
 
-if prompt := st.chat_input("Escribe tus síntomas o dudas aquí..."):
-    st.session_state.mensajes.append({"role": "user", "content": prompt})
-    st.chat_message("user").markdown(prompt)
-    
-    try:
-        full_prompt = f"Eres Quantum (Nivel: {nivel}). {INSTRUCCION_EXTRA}. Usuario: {prompt}."
-        # Usamos el modelo que TÚ tienes disponible según tu lista
-        res = genai.GenerativeModel('gemini-2.5-flash').generate_content(full_prompt)
-        st.session_state.mensajes.append({"role": "assistant", "content": res.text})
-        st.rerun()
-    except Exception as e: st.error(f"Error: {e}")
-        # --- CÓDIGO TEMPORAL DE DIAGNÓSTICO ---
-#if st.button("🕵️ Ver Modelos Disponibles"):
-    #try:
-        #st.write("Consultando a Google...")
-        #for m in genai.list_models():
-            #if 'generateContent' in m.supported_generation_methods:
-                #st.code(f"Nombre: {m.name}")
-    #except Exception as e:
-        #st.error(f"Error: {e}")
+NORMAS OBLIGATORIAS:
+1. Cita las fuentes basándote SOLO en la evidencia adjunta. Si no hay fuente, decláralo.
+2. No inventes datos (Cero alucinaciones).
+3. Mantén un tono neutral, objetivo y profesional.
+4. Estructura: Titular, Lead (Resumen), Análisis de Hechos, Conclusión.
+5. AL FINAL: Genera un "PROMPT DE IMAGEN" detallado, en inglés, para generar una ilustración fotorrealista del tema.
+"""
+
+# Selección de Fuente
+tipo_investigacion = st.radio("Selecciona el tipo de evidencia:", ["📝 Texto / Noticia", "📸 Imagen / Documento"], horizontal=True)
+
+user_input = ""
+imagen_procesar = None
+
+if "Texto" in tipo_investigacion:
+    user_input = st.text_area("Pega aquí el texto, noticia o cable a investigar:", height=200)
+
+else:
+    uploaded_file = st.file_uploader("Sube una imagen (Foto, Captura, Documento escaneado)", type=["jpg", "png", "jpeg"])
+    if uploaded_file is not None:
+        imagen_procesar = Image.open(uploaded_file)
+        st.image(imagen_procesar, caption="Evidencia Cargada", width=400)
+        user_input = st.text_input("Contexto adicional (Opcional):", placeholder="¿Qué quieres saber de esta imagen?")
+
+# Botón de Acción
+if st.button("🔍 Iniciar Investigación Profunda"):
+    if not user_input and not imagen_procesar:
+        st.warning("⚠️ Por favor ingresa texto o sube una evidencia visual.")
+    else:
+        with st.spinner("🕵️‍♂️ Analizando hechos, verificando fuentes y redactando reporte..."):
+            try:
+                # Configuración del Modelo (Usamos Gemini Pro Vision o Texto)
+                model = genai.GenerativeModel('gemini-1.5-flash') # Modelo rápido y potente
+                
+                response = None
+                
+                # A) Análisis de Solo Texto
+                if imagen_procesar is None:
+                    prompt_completo = f"{SYSTEM_PROMPT}\n\nANALIZA ESTA INFORMACIÓN:\n{user_input}"
+                    response = model.generate_content(prompt_completo)
+                
+                # B) Análisis de Imagen + Texto
+                else:
+                    prompt_completo = [SYSTEM_PROMPT, "ANALIZA ESTA IMAGEN Y EL CONTEXTO:", user_input if user_input else "Analiza todo lo visible.", imagen_procesar]
+                    response = model.generate_content(prompt_completo)
+                
+                # Mostrar Resultado
+                st.markdown("### 📠 Reporte Confidencial")
+                st.markdown('<div class="reporte-box">', unsafe_allow_html=True)
+                st.markdown(response.text)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Botón de Copiar (Truco visual)
+                st.caption("Fin del reporte. Verifica la información antes de publicar.")
+
+            except Exception as e:
+                st.error(f"❌ Error en la investigación: {str(e)}")
+                if "429" in str(e):
+                    st.warning("⏳ Límite de velocidad alcanzado (API Gratuita). Espera un momento.")
+
+# Pie de página
+st.markdown("---")
+st.caption("Quantum Reporter v1.0 | Ethical AI Journalism")
