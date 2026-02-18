@@ -109,7 +109,7 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # C) Configurar Modelo con Memoria
-model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_INSTRUCTION)
+model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=SYSTEM_INSTRUCTION)
 chat = model.start_chat(history=st.session_state.chat_history)
 
 # D) Mostrar Historial en Pantalla
