@@ -137,6 +137,20 @@ if st.button("🔍 Iniciar Investigación Profunda"):
                 st.markdown('<div class="reporte-box">', unsafe_allow_html=True)
                 st.markdown(response.text)
                 st.markdown('</div>', unsafe_allow_html=True)
+
+                # --- GENERACIÓN DE PDF ---
+                st.success("✅ Investigación completada.")
+                
+                # Creamos el PDF en memoria
+                pdf_bytes = crear_pdf_reporte(response.text, usuario)
+                
+                # Botón de Descarga
+                st.download_button(
+                    label="📄 Descargar Informe Oficial (PDF)",
+                    data=pdf_bytes,
+                    file_name=f"Reporte_Quantum_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf"
+                )
                 
                 # Botón de Copiar (Truco visual)
                 st.caption("Fin del reporte. Verifica la información antes de publicar.")
