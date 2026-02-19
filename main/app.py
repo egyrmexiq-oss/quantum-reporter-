@@ -70,6 +70,15 @@ def inyectar_estilo_quantum():
 
 inyectar_estilo_quantum()
 
+    st.markdown("---")
+    # Contador de Visitas (Mentalidad de Crecimiento)
+    st.markdown("""
+    <div style="background-color: #2e1a47; padding: 10px; border-radius: 5px; text-align: center;">
+        <span style="color: #E0B0FF; font-weight: bold;">🧘 Sesiones:</span>
+        <img src="https://api.visitorbadge.io/api/visitors?path=quantum-reporter-.com&label=&countColor=%23E0B0FF&style=flat&labelStyle=none" style="height: 20px;" />
+    </div>
+    """, unsafe_allow_html=True)
+
 def crear_pdf_reporte(historial, agente):
     class PDF(FPDF):
         def header(self):
