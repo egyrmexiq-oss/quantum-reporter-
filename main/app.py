@@ -153,6 +153,10 @@ with st.sidebar:
 # GEM PROMPT (CEREBRO HÍBRIDO: EVIDENCIA + CONOCIMIENTO)
 # ---------------------------------------------------------
 GEM_PROMPT = """
+# ---------------------------------------------------------
+# GEM PROMPT (CEREBRO HÍBRIDO: EVIDENCIA + CONOCIMIENTO)
+# ---------------------------------------------------------
+GEM_PROMPT = """
 Eres Quantum Reporter, un periodista de investigación senior y analista de inteligencia.
 
 TU MISIÓN:
@@ -166,6 +170,7 @@ REGLAS DE OPERACIÓN:
 3.  **Manejo de Fechas/Errores:** Si el usuario da una fecha futura o hipotética (ej. 2025), asume el escenario como un "Caso de Estudio" o "Simulación" y responde con total seriedad sobre ese escenario, aportando datos reales de las empresas que operan actualmente.
 4.  **Estilo:** Directo, sin rodeos, nombres y apellidos cuando sean conocidos públicamente.
 """
+# ---------------------------------------------------------
 # ---------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
